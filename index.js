@@ -60,7 +60,6 @@ app.get('/marathonRegister/:id',async(req,res)=>{
       }
     });
 
-
     // 📌 total register koyta tar jonno post kore total jonno update kora hoise
 app.post('/registerMarathon/:marathonId', async (req, res) => {
   const marathonId =req.params.marathonId;
@@ -96,7 +95,6 @@ app.put('/updateApplyList/:id',async(req,res)=>{
 
     // ===============================================================
 
-    
     app.get('/marathons',async(req,res)=>{
       const sortParams = req.query.sort === '-createdAt'?{createdAt: -1}: {}
       const limit = parseInt(req.query.limit) || 0;
@@ -141,7 +139,6 @@ app.put('/updateMarathonList/:id',async(req,res)=>{
     const result = await marathonCollection.updateOne(query,updateDoc)
     res.send(result)
 })
-
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
