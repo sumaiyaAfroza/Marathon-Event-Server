@@ -28,6 +28,7 @@ async function run() {
     
     const marathonCollection = client.db('marathonDB').collection('marathons')
     const registerCollection = client.db('registerDB').collection('registerInfo')
+    const userCollection = client.db('registerDB').collection('userInfo')
 
 // register form er data paoar jonno
 app.get('/marathonRegister/:id',async(req,res)=>{
@@ -139,6 +140,112 @@ app.put('/updateMarathonList/:id',async(req,res)=>{
     const result = await marathonCollection.updateOne(query,updateDoc)
     res.send(result)
 })
+
+// =========
+
+// 🧠 Create or update user profile
+app.post("/users", async (req, res) => {
+  try {
+    const { name, email, photo } = req.body;
+
+    // if missing info
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    // check if user exists
+    const existingUser = await userCollection.findOne({ email });
+
+    if (existingUser) {
+      // update user info
+      const updated = await userCollection.updateOne(
+        { email },
+        { $set: { name, photo, updatedAt: new Date() } }
+      );
+      return res.status(200).json({ message: "Profile updated", updated });
+    }
+
+    // new user
+    const result = await userCollection.insertOne({
+      name,
+      email,
+      photo,
+      role: "user",
+      createdAt: new Date(),
+    });
+
+    res.status(201).json({ message: "Profile created", result });
+  } catch (error) {
+    console.error("Error saving profile:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// 🧩 Get single user profile by email
+app.get("/users/:email", async (req, res) => {
+  try {
+   
+    const email = req.params.email;
+
+    const user = await userCollection.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+// ===========================================================
+
+// Get User Profile
+app.get('/profile',async (req, res) => {
+  try {
+    const userEmail = req.user.email;
+    
+    // Find user profile
+    let userProfile = await registerCollection.findOne({ email: userEmail });
+    
+    // If profile doesn't exist, create a basic one
+    if (!userProfile) {
+      userProfile = {
+        email: userEmail,
+        name: req.user.name || '',
+        photoURL: req.user.photoURL || '',
+        phone: '',
+        location: '',
+        bio: '',
+        preferredDistance: '10k',
+        createdAt: new Date()
+      };
+      
+      await userCollection.insertOne(userProfile);
+    }
+    
+    res.json(userProfile);
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    res.status(500).json({ message: 'Failed to fetch profile' });
+  }
+});
+
+
+
+
+
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
