@@ -29,6 +29,7 @@ async function run() {
     const marathonCollection = client.db('marathonDB').collection('marathons')
     const registerCollection = client.db('registerDB').collection('registerInfo')
     const userCollection = client.db('registerDB').collection('userInfo')
+    const reviewCollection = client.db('registerDB').collection('reviews')
 
 // register form er data paoar jonno
 app.get('/marathonRegister/:id',async(req,res)=>{
@@ -201,15 +202,6 @@ app.get("/users/:email", async (req, res) => {
 });
 
 
-
-
-
-
-
-
-
-
-
 // ===========================================================profile
 
 // Get User Profile
@@ -297,7 +289,9 @@ app.put("/profile/:email", async (req, res) => {
       { returnDocument: 'after' }
     );
 
-    if (!result.value) {
+    console.log(result);
+
+    if (!result.modifiedCount) {
       return res.status(404).json({ message: "Failed to update profile" });
     }
 
@@ -505,6 +499,104 @@ app.get("/api/dashboard/recent-activity", async (req, res) => {
     res.json(activityFeed.sort((a, b) => new Date(b.time) - new Date(a.time)));
   } catch (error) {
     console.error("Error fetching recent activity:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   review
+// ====================== ⭐ REVIEW & RATING SYSTEM ======================
+
+
+
+// 📌 POST: Add a new review
+app.post('/reviews', async (req, res) => {
+  try {
+    const { marathonId, userName, email, rating, comment } = req.body;
+
+    if (!marathonId || !rating || !userName) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const review = {
+      marathonId,
+      userName,
+      email,
+      rating: Number(rating),
+      comment: comment || "",
+      createdAt: new Date(),
+    };
+
+    const result = await reviewCollection.insertOne(review);
+    res.status(201).json({ message: "Review added successfully", result });
+  } catch (error) {
+    console.error("Error adding review:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// 📌 GET: All reviews for a marathon
+app.get('/reviews/:marathonId', async (req, res) => {
+  try {
+    const marathonId = req.params.marathonId;
+    const reviews = await reviewCollection
+      .find({ marathonId })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.json(reviews);
+  } catch (error) {
+    console.error("Error fetching reviews:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// 📊 GET: Rating summary for a marathon
+app.get('/reviews/summary/:marathonId', async (req, res) => {
+  try {
+    const marathonId = req.params.marathonId;
+
+    const pipeline = [
+      { $match: { marathonId } },
+      {
+        $group: {
+          _id: "$marathonId",
+          avgRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+          ratings: { $push: "$rating" },
+        },
+      },
+    ];
+
+    const result = await reviewCollection.aggregate(pipeline).toArray();
+
+    if (result.length === 0)
+      return res.json({ avgRating: 0, totalReviews: 0, distribution: {} });
+
+    const { avgRating, totalReviews, ratings } = result[0];
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    ratings.forEach((r) => (distribution[r] = (distribution[r] || 0) + 1));
+
+    res.json({
+      avgRating: Number(avgRating.toFixed(2)),
+      totalReviews,
+      distribution,
+    });
+  } catch (error) {
+    console.error("Error summarizing ratings:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// 🗑️ DELETE: Remove a review (optional)
+app.delete('/reviews/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const filter = { _id: new ObjectId(id) };
+    const result = await reviewCollection.deleteOne(filter);
+    res.json({ message: "Review deleted", result });
+  } catch (error) {
+    console.error("Error deleting review:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
