@@ -535,6 +535,11 @@ app.post('/reviews', async (req, res) => {
   }
 });
 
+app.get('/reviews', async (req, res) => {
+  const review = await reviewCollection.find().toArray();
+  res.send(review);
+});
+
 // 📌 GET: All reviews for a marathon
 app.get('/reviews/:marathonId', async (req, res) => {
   try {
@@ -555,6 +560,7 @@ app.get('/reviews/:marathonId', async (req, res) => {
 app.get('/reviews/summary/:marathonId', async (req, res) => {
   try {
     const marathonId = req.params.marathonId;
+    console.log(marathonId);
 
     const pipeline = [
       { $match: { marathonId } },
